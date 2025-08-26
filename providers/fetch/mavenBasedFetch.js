@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 const AbstractFetch = require('./abstractFetch')
-const { callFetch, defaultHeaders } = require('../../lib/fetch')
-const nodeRequest = require('request')
+const { callFetch, withDefaults, getStream } = require('../../lib/fetch')
 const { clone, get } = require('lodash')
 const { promisify } = require('util')
 const fs = require('fs')
@@ -28,7 +27,7 @@ class MavenBasedFetch extends AbstractFetch {
     super(options)
     this._providerMap = { ...providerMap }
     this._handleRequestPromise = options.requestPromise || callFetch
-    this._handleRequestStream = options.requestStream || nodeRequest.defaults({ headers: defaultHeaders }).get
+    this._handleRequestStream = options.requestStream || getStream
   }
 
   canHandle(request) {
@@ -92,11 +91,14 @@ class MavenBasedFetch extends AbstractFetch {
     const extensions = spec.type === 'sourcearchive' ? [extensionMap.sourcesJar] : [extensionMap.jar, extensionMap.aar]
     for (let extension of extensions) {
       const url = this._buildUrl(spec, extension)
-      const status = await new Promise(resolve => {
-        this._handleRequestStream(url, (error, response) => {
-          if (error) this.logger.error(error)
+      const status = await new Promise(async resolve => {
+        try {
+          const response = await this._handleRequestStream(url)
           if (response.statusCode !== 200) return resolve(false)
-        }).pipe(fs.createWriteStream(destination).on('finish', () => resolve(true)))
+          response.pipe(fs.createWriteStream(destination).on('finish', () => resolve(true)))
+        } catch (error) {
+          this.logger.error(error)
+        }
       })
       if (status) return true
     }

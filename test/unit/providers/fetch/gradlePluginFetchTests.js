@@ -81,10 +81,10 @@ describe('Gradle plugin fetch', () => {
         const content = contentFromFile(options.url)
         return options.json ? JSON.parse(content) : content
       }
-      const getStub = (url, callback) => {
+      const getStub = url => {
         const response = new PassThrough()
         response.write(contentFromFile(url))
-        callback(null, { statusCode: 200 })
+        response.statusCode = 200
         response.end()
         return response
       }
@@ -150,11 +150,10 @@ describe('Gradle plugin fetch', () => {
     })
 
     it('handle no sourcearchive found for plugin', async () => {
-      handler._handleRequestStream = (url, callback) => {
+      handler._handleRequestStream = () => {
         const response = new PassThrough()
-        callback(new Error('404'), { statusCode: 404 })
-        response.end()
-        return response
+        response.statusCode = 404
+        return new Error('404')
       }
       const request = await handler.handle(
         new Request('test', 'cd:/sourcearchive/gradleplugin/org.eclipse/swt/3.3.0-v3344')
