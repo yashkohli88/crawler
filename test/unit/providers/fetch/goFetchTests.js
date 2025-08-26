@@ -66,14 +66,14 @@ describe('Go Proxy fetching', () => {
       return options.json ? JSON.parse(content) : content
     }
 
-    const getStub = (url, callback) => {
+    const getStub = url => {
       const response = new PassThrough()
       const file = `test/fixtures/go/${pickArtifact(url)}`
       if (file) {
         response.write(fs.readFileSync(file))
-        callback(null, { statusCode: 200 })
+        response.statusCode = 200
       } else {
-        callback(new Error(url.includes('error') ? 'Error' : 'Code'))
+        return new Error(url.includes('error') ? 'Error' : 'Code')
       }
       response.end()
       return response
@@ -87,8 +87,7 @@ describe('Go Proxy fetching', () => {
       })
     }
     Fetch = proxyquire('../../../../providers/fetch/goFetch', {
-      request: { get: getStub },
-      '../../lib/fetch': { callFetch: requestPromiseStub }
+      '../../lib/fetch': { callFetch: requestPromiseStub, getStream: getStub }
     })
   })
 

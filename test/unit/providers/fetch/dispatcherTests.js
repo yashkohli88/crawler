@@ -339,8 +339,7 @@ describe('fetchDispatcher cache fetch result', () => {
 
     beforeEach(() => {
       const GoFetch = proxyquire('../../../../providers/fetch/goFetch', {
-        request: { get: createGetStub(fileSupplier) },
-        '../../lib/fetch': { callFetch: createRequestPromiseStub(fileSupplier) }
+        '../../lib/fetch': { callFetch: createRequestPromiseStub(fileSupplier), getStream: createGetStub(fileSupplier) }
       })
       const fetch = GoFetch({ logger: { info: sinon.stub() }, http: successHttpStub })
       fetchDispatcher = setupDispatcher(fetch)
@@ -428,14 +427,14 @@ const createRequestPromiseStub = fileSupplier => {
 }
 
 const createGetStub = fileSupplier => {
-  return (url, callback) => {
+  return url => {
     const response = new PassThrough()
     const file = `test/fixtures/${fileSupplier(url)}`
     if (file) {
       response.write(fs.readFileSync(file))
-      callback(null, { statusCode: 200 })
+      response.statusCode = 200
     } else {
-      callback(new Error(url.includes('error') ? 'Error' : 'Code'))
+      return new Error(url.includes('error') ? 'Error' : 'Code')
     }
     response.end()
     return response
