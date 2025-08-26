@@ -8,7 +8,7 @@ const domain = require('domain')
 const fs = require('fs')
 const linebyline = require('linebyline')
 const memCache = require('memory-cache')
-const nodeRequest = require('request')
+const { getStream: nodeRequest } = require('../../lib/fetch')
 const path = require('path')
 const { promisify } = require('util')
 const { callFetch: requestPromise } = require('../../lib/fetch')
@@ -103,9 +103,9 @@ class DebianFetch extends AbstractFetch {
           memCache.del(packageFileMap.cacheKey)
           return reject(error)
         })
-        dom.run(() => {
-          nodeRequest
-            .get(packageFileMap.url)
+        dom.run(async () => {
+          const response = await nodeRequest(packageFileMap.url)
+          response
             .pipe(bz2())
             .pipe(fs.createWriteStream(this.packageMapFileLocation))
             .on('finish', () => {
@@ -213,15 +213,14 @@ class DebianFetch extends AbstractFetch {
     return new Promise((resolve, reject) => {
       const dom = domain.create()
       dom.on('error', error => reject(error))
-      dom.run(() => {
-        nodeRequest
-          .get(downloadUrl, (error, response) => {
-            if (error) return reject(error)
-            if (response.statusCode !== 200)
-              return reject(new Error(`${response.statusCode} ${response.statusMessage}`))
-          })
-          .pipe(fs.createWriteStream(destination))
-          .on('finish', () => resolve())
+      dom.run(async () => {
+        try {
+          const response = await nodeRequest(downloadUrl)
+          if (response.statusCode !== 200) return reject(new Error(`${response.statusCode} ${response.message}`))
+          response.pipe(fs.createWriteStream(destination)).on('finish', () => resolve())
+        } catch (error) {
+          return reject(error)
+        }
       })
     })
   }
